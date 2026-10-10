@@ -1,0 +1,160 @@
+PEPPERANDPRI — UI / FRONTEND IMPLEMENTATION PROMPT
+===================================================
+
+PROJECT CONTEXT
+Build a completely new project called "pepperandpri". The project folder is currently empty: there is no existing code, configuration, README, or Markdown file. Start from zero. Do not assume any existing framework, assets, components, or backend.
+
+This file defines the frontend, layout, visual direction, page structure, scrolling experience, and animations. The palette-generation and grouping algorithm is specified separately in the backend prompt. Keep the frontend ready to integrate with that backend, but do not replace the real algorithm with hardcoded mock behaviour.
+
+REFERENCE MATERIAL
+- Visual / animation inspiration: https://still-dun.vercel.app/
+- Palettewise layout sketch: the user-provided hand-drawn image in the conversation.
+- Treat the reference website as inspiration for visual language, transitions, motion quality, and interaction feel, not as a page to copy exactly.
+- The hand-drawn sketch defines the Palettewise page structure more directly than the reference site.
+
+PROJECT IDENTITY
+The project is called pepperandpri. It is completely separate from any other project. Do not use the name Laya or inherit branding, assets, design tokens, or assumptions from unrelated projects.
+
+SCOPE AND PRIORITIES
+There are three pages:
+1. Landing page
+2. Catalogue page
+3. Palettewise page
+
+The main implementation priority is Palettewise. Build the landing and catalogue pages as coherent, navigable foundations, but spend most of the design and engineering effort on Palettewise. Do not let the landing page or catalogue distract from the core Palettewise experience.
+
+BEFORE CODING
+1. Inspect the current project folder and confirm it is empty.
+2. Inspect the supplied reference website and understand its layout, typography, transitions, and motion. Recreate the general feel with original implementation rather than copying source code or assets.
+3. Establish the stack and install only the dependencies needed. Prefer a modern, maintainable frontend setup. If no stack has been prescribed, use React with Vite and CSS, with a lightweight animation library only if it materially improves the result.
+4. Create a clean, sensible file structure and working scripts. Do not generate unnecessary documentation or boilerplate.
+5. Make sure the project runs locally before considering the task complete.
+
+OVERALL ART DIRECTION
+Create a restrained, image-first, gallery-like experience. The interface should feel curated and deliberate, with generous negative space and refined motion. Avoid generic SaaS dashboards, loud gradients, excessive rounded cards, unnecessary borders, and decorative UI that competes with the photography.
+
+Use the reference website to guide:
+- Typography character and hierarchy
+- Spacing and composition
+- Hover and scroll motion
+- Transition duration and easing
+- How elements enter, settle, and leave the viewport
+
+Do not blindly copy its colours or layout. Make a consistent visual system suited to a photography archive organised by colour.
+
+Use CSS design tokens for backgrounds, text, borders, spacing, typography, motion duration, and easing. Choose a legible typeface pairing that fits the reference. Keep the interface responsive, accessible, and performant. Respect prefers-reduced-motion.
+
+PAGE 1 — LANDING
+Create a minimal, atmospheric entry point for the photo archive.
+- Make the project name "pepperandpri" clearly identifiable.
+- Use concise placeholder copy that communicates a photographic archive organised by colour, without overexplaining the algorithm.
+- Provide clear navigation to Catalogue and Palettewise.
+- Keep the composition image-led and spacious.
+- Add restrained, high-quality entrance and hover animations inspired by the reference.
+- Do not make this a generic marketing page with feature grids, testimonials, pricing, or oversized CTA sections.
+- The landing page should feel like the opening of a visual archive.
+
+PAGE 2 — CATALOGUE
+Create a catalogue view for browsing the archive's photographs.
+- Present photos in a clean, responsive image grid or similarly appropriate catalogue layout.
+- Include a clear route to Palettewise.
+- Provide a photo detail interaction if it can be done cleanly: for example, selecting a photo opens a focused view with its image and palette information.
+- Keep image loading, empty states, and loading states intentional.
+- Do not invent filters or complicated functionality that is not needed for the core product.
+- Use the same typography, spacing, and motion language as the other pages.
+
+PAGE 3 — PALETTEWISE (PRIMARY FOCUS)
+This is the core page. Its layout should follow the user's attached hand-drawn sketch:
+- A vertical, scrollable page made of palette rows.
+- Each row corresponds to one palette group.
+- A slim horizontal palette strip sits above the photos in that row. It is divided into swatches representing the group's current representative colours.
+- The palette's name or number appears beside the strip. The visible label should be dynamically numbered, such as [1], [2], [3], and so on.
+- Under the strip, show the photos belonging to that palette group in a horizontal row of image tiles.
+- Use thin, understated horizontal separators between groups.
+- Keep the main content aligned consistently and preserve the sketch's generous horizontal composition.
+- Avoid adding a sidebar or changing the core row-based design into a conventional card grid.
+- The number of images per row must be data-driven and the layout must adapt to different viewport sizes.
+
+OPENING VIEWPORT
+When Palettewise first opens:
+- Approximately the top 60% of the initial viewport should remain empty negative space.
+- Include subtle placeholder/introductory text in this open space. Keep it short and visually quiet.
+- The remaining lower 40% should show only the first palette row, partially or fully according to viewport dimensions.
+- The initial layout should feel intentional, not like content has failed to load.
+- Do not fill the empty space with extra cards, a hero illustration, or unnecessary navigation elements.
+
+PALETTE LABEL ANIMATION
+The special numbering animation applies ONLY to the palette labels (for example, [1], [2], [3]).
+- Do not apply the same animation to the swatches, photos, row containers, separators, or the whole page.
+- As a palette row becomes active / enters its intended scroll position, animate its label with a refined reveal. The exact effect can be inspired by the reference website: for example, a subtle clip/mask reveal, a short vertical movement, or a character-by-character reveal if it suits the reference.
+- Keep it quick and controlled, with no bouncy, gimmicky, or typewriter-like behaviour unless clearly justified by the reference.
+- Animate each label at the right time and avoid repeatedly replaying the animation due to tiny scroll fluctuations.
+- Make the animation reliable on touch devices and when the user scrolls quickly.
+- Provide a non-animated fallback for prefers-reduced-motion.
+
+SCROLL EXPERIENCE — IMPORTANT
+The scroll interaction has two distinct phases.
+
+PHASE A: NORMAL SCROLL
+- At the top, scrolling must behave like a normal webpage.
+- The user moves from the large empty opening space into the palette rows naturally.
+- Do not lock scrolling immediately on page load.
+- Do not create a full-screen carousel or make each row a separate page.
+
+PHASE B: FOCUSED / LOCKED ROW SCROLL
+- Once enough rows fill the viewport, transition into a focused scroll experience.
+- The background and surrounding page composition should appear stationary.
+- A central viewing region remains visually anchored while the palette rows move through it in a controlled, scroll-driven sequence.
+- The currently focused row should be visually centred and highlighted.
+- As the user scrolls further, the next row moves into focus and becomes the highlighted row. For example, when row 4 is active and the user scrolls onward, row 5 should begin its transition and then become the active row.
+- Scrolling should feel like moving through a continuous archive, not clicking through slides.
+- Preserve a clear relationship between scroll distance and animation progress. Small scroll movements should produce small, understandable changes; a full scroll step should advance the focus to the next row.
+- Keep the active row legible and visually dominant without making inactive rows disappear abruptly.
+- The background must remain still during the focused phase, while the row content moves in the locked manner described above.
+- At the end of the focused sequence, release the scroll naturally so the user can continue through the page or reach the footer. Scrolling upward must reverse the experience predictably.
+
+IMPLEMENTATION GUIDANCE FOR SCROLLING
+- Prefer native scroll plus CSS sticky positioning and scroll-linked state where possible.
+- Use a measured, accessible scroll-driven interaction rather than globally hijacking the mouse wheel.
+- Avoid preventing normal wheel/touch events unless there is a compelling reason; wheel hijacking often feels broken, especially on trackpads and mobile.
+- The experience may use a sticky viewport or pinned section with row translations tied to scroll progress. Ensure the document still has meaningful scroll height.
+- Define clear entry and exit thresholds for the focused section.
+- Do not let the pinned area trap the user or make it impossible to reach the footer.
+- Support trackpads, mouse wheels, touch scrolling, keyboard navigation, browser zoom, and reduced-motion preferences.
+- Avoid layout shifts when images load by reserving image aspect ratios.
+- Ensure the active-row calculation is stable and does not flicker at row boundaries.
+- If the exact lock-scroll interaction is technically fragile, implement the closest robust version using a sticky focus window and native scrolling instead of shipping a broken custom scroll lock.
+
+HOVER AND IMAGE INTERACTIONS
+- Add subtle image hover treatment inspired by the reference: restrained scale, crop shift, or a slight opacity/contrast adjustment.
+- Keep the photo itself the main focus. Do not add large overlays or animated decorations over every image.
+- The palette swatches can have a small, clear hover affordance if useful.
+- The sketch indicates that a palette name may be revealed on hover. If implementing this, reveal the name cleanly near the palette strip without shifting the row's layout or causing nearby content to jump.
+- Hover effects must have touch-friendly equivalents and must not be required to understand the page.
+
+RESPONSIVE BEHAVIOUR
+- Desktop: preserve the wide, horizontal row composition from the sketch.
+- Tablet: reduce gaps and image sizes while maintaining the palette-strip-above-images hierarchy.
+- Mobile: adapt rows to the viewport; allow horizontal image scrolling within a row if appropriate, but never create accidental page-wide horizontal overflow.
+- The opening whitespace should scale sensibly rather than blindly remaining 60vh on every screen.
+- The focused scrolling interaction must remain usable on touch screens. If necessary, simplify the pinning behaviour on mobile while preserving the concept.
+
+DATA AND BACKEND INTEGRATION
+- Do not hardcode the actual palette groups or their final ordering.
+- Build reusable components such as PalettewisePage, PaletteRow, PaletteStrip, PaletteLabel, PhotoTile, and shared navigation.
+- Define a clear data contract for palette groups and member photos, and isolate API calls in a small service layer.
+- The frontend should render real backend data when available and include intentional loading, error, and empty states.
+- During development, a small clearly isolated mock dataset is acceptable for visual work, but do not let mock data become the final algorithm.
+- When the backend updates a group's representative palette, the swatches should update without requiring a page redesign. Handle changing palette data without jarring layout changes.
+- Keep palette identifiers stable even when their visible labels or representative colours change. The visible [1], [2], [3] labels should be derived from the current display order, not used as database identifiers.
+
+QUALITY BAR
+- The result must look deliberately art-directed, not like a default component library.
+- The Palettewise page is the main deliverable; polish its spacing, image treatment, swatch strips, label animation, active-row state, and scroll transitions.
+- Use smooth but restrained motion and consistent easing. Avoid over-animating everything.
+- Keep the implementation understandable and reasonably simple. Avoid unnecessary abstractions and dependencies.
+- Check console errors, broken images, overflow, scroll behaviour, responsive breakpoints, and reduced-motion behaviour.
+- Test the experience from the very top, while moving through several rows, when scrolling backward, and at the end of the archive.
+
+DELIVERABLE
+Implement the pages and navigation in the empty project. Prioritise a polished Palettewise experience with the row layout and two-phase scrolling described above. Make the project runnable and briefly report what was built, how to run it, and any assumptions or limitations.

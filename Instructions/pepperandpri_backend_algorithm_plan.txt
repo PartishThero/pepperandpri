@@ -1,0 +1,276 @@
+PEPPERANDPRI — BACKEND / EVOLVING PALETTE ALGORITHM PROMPT
+===========================================================
+
+PROJECT CONTEXT
+Build the backend for a new project called "pepperandpri". The project folder starts completely empty: there is no existing code, package configuration, database, API, or documentation. Start from zero and create a working, maintainable backend.
+
+This file defines the photo-ingestion pipeline, palette extraction, similarity comparison, evolving palette groups, persistence, API, and testing. The frontend is specified in a separate prompt. Keep the API contract suitable for a row-based Palettewise page.
+
+CORE PRODUCT IDEA
+pepperandpri is a photo archive organised by colour composition rather than subject.
+
+Each uploaded image receives an extracted colour palette. The backend compares that image's palette with existing palette groups:
+- If it is sufficiently similar to an existing group, the image joins that group and the group's representative palette is recalculated.
+- If it is not sufficiently similar to any existing group, create a new group.
+- A group's palette evolves continuously as images are added. Conceptually, P1 becomes P1′, then P1″, then P1‴ as more images join.
+- The photos themselves retain their individual, original extracted palettes. Group evolution must not overwrite those original image-level results.
+
+The goal is an evolving collection of colour families, not a static set of manually assigned colour categories.
+
+IMPORTANT RESEARCH / IP NOTE
+Do not claim to reproduce Atmos Gallery's proprietary implementation exactly. Build an independently implemented system based on established colour-science and clustering techniques. The project can follow the general concept of extracting a representative palette and grouping visually similar colour distributions, but should not copy proprietary code or assume undocumented implementation details.
+
+START FROM ZERO
+1. Inspect the empty project directory.
+2. Select and configure a backend stack that fits a full-stack photo archive. If no stack is already mandated, a straightforward Node.js + TypeScript + Express API is appropriate. Use a persistent database; MongoDB is a reasonable default for a MERN-style project, but keep the storage layer isolated.
+3. Create all required configuration, source files, scripts, environment example, and tests.
+4. Do not hardcode secrets. Validate required environment variables and provide a clear .env.example.
+5. Do not add unrelated features or excessive architecture.
+
+ALGORITHM OVERVIEW
+Implement the following pipeline:
+
+UPLOAD IMAGE
+  -> validate and normalise image
+  -> compute a stable image fingerprint
+  -> extract representative colours and their weights
+  -> compare image palette with existing group representatives
+  -> join the best eligible group OR create a new group
+  -> recompute the group's representative palette from its member images
+  -> persist the image, membership, and updated group palette
+  -> expose the updated group to the frontend
+
+1. IMAGE VALIDATION AND NORMALISATION
+- Accept supported raster formats such as JPEG, PNG, and WebP.
+- Validate actual file content, not only the filename or client-provided MIME type.
+- Enforce a configurable maximum upload size and sensible pixel/dimension limits to reduce memory-exhaustion risk.
+- Correct image orientation using metadata and normalise image decoding before analysis.
+- Reject corrupt or unsupported images with clear API errors.
+- Generate a stable fingerprint (for example, SHA-256 of the normalised/original file bytes) to detect accidental duplicate uploads. Define and document whether identical files are rejected, returned as an existing record, or allowed as separate archive entries.
+- Keep image storage separate from palette-analysis metadata. For local development, local file storage is acceptable; define a storage adapter so object storage can be added later.
+- Do not store huge base64 image strings in database documents.
+
+2. PER-IMAGE PALETTE EXTRACTION
+Extract a compact, weighted representation of each image's colour composition.
+
+Recommended approach:
+- Resize a working copy to a modest analysis resolution so large images are inexpensive to process.
+- Convert sampled pixels into a perceptually meaningful colour space such as OKLab.
+- Cluster colours using a reproducible method, such as weighted k-means or a density-based clustering method.
+- Extract approximately 5–8 representative colours, subject to image diversity.
+- Store each representative colour with its normalised pixel proportion/weight. Weights should sum to approximately 1.
+- Preserve the actual representative colours in a format the frontend can render, such as sRGB hex, while storing the values needed for colour-distance calculations.
+- Use deterministic settings or a fixed seed where appropriate so the same image does not receive wildly different palettes on repeated processing.
+- Ignore or reduce the influence of transparent pixels for images with alpha channels; define a consistent background/compositing policy.
+- Do not simply select the most common RGB values. The output should represent dominant colour composition, not isolated noise.
+- Store extraction metadata such as algorithm version, analysis dimensions, and extraction timestamp so results can be reproduced or reprocessed later.
+
+Each image's stored palette should contain:
+- Image ID and fingerprint
+- Representative colours
+- A weight/proportion for each colour
+- Any additional normalised colour-space values required for comparison
+- Extraction algorithm version
+- Assigned palette-group ID
+- Creation / processing timestamps
+
+3. PALETTE SIMILARITY
+Do not compare palettes as unordered arrays of hex strings or use raw RGB Euclidean distance as the only metric.
+
+Implement a weighted perceptual comparison:
+- Compare colours in OKLab or another perceptually suitable space.
+- Account for each colour's proportion in the image.
+- Allow a representative colour in one palette to match a nearby colour in the other palette; palette swatches do not necessarily align by array index.
+- A practical starting point is a weighted nearest-colour distance in both directions, or a small optimal-transport / Earth Mover's Distance-style comparison between the two weighted colour distributions.
+- Normalise the resulting distance into a documented range where possible. Lower distance should mean more similar composition.
+- Consider colour proportions, not only whether two images contain the same set of colours.
+- Keep the metric in a separate, unit-testable module.
+
+Start with a simple defensible metric rather than overengineering. Document its behaviour and limitations, and make the distance metric replaceable.
+
+4. MATCHING THRESHOLD AND GROUP ASSIGNMENT
+For each newly extracted image palette:
+- Compare it with each existing group's current representative palette.
+- Select the group with the lowest distance.
+- If the best distance is below a configurable threshold, assign the image to that group.
+- If no group passes the threshold, create a new group.
+- Store the comparison distance and the threshold/version used for the assignment for debugging and evaluation.
+- Never merge a photo into an arbitrary group merely because it is the closest available group. If every group is too different, create a new one.
+- If two groups have nearly equal scores, use a deterministic tie-breaker.
+- Do not use palette names or visible numbering as group identity.
+- Keep a stable, immutable database ID for each group.
+
+Threshold tuning:
+- Do not pretend a universal ideal threshold exists.
+- Make the threshold configurable through environment/configuration.
+- Create a small evaluation script or test dataset containing obvious similar and dissimilar palette pairs.
+- Explain how to tune the threshold based on real archive examples.
+- Avoid adding a complex ML model or external AI API; this is a deterministic colour-analysis problem.
+
+5. EVOLVING GROUP PALETTE (P1 -> P1′ -> P1″)
+This is a core requirement, not an optional enhancement.
+
+When an image joins an existing group:
+- Keep its original per-image palette unchanged.
+- Add its palette distribution to the group's membership set.
+- Recompute the group's representative palette from all current member images, or maintain an equivalent mathematically correct incremental representation.
+- Save the new representative palette as the group's current version.
+- Increment a palette revision/version number, or store an updated-at timestamp and revision history, so the frontend can recognise a changed palette.
+- The visible swatches for that row should reflect the new representative palette on the next API response.
+
+Important: do not simply average swatch 1 with swatch 1, swatch 2 with swatch 2, and so on. Swatch order is not semantically stable across images, and naive index-by-index averaging produces incorrect results.
+
+Recommended initial implementation:
+- Retain every member image's original weighted palette.
+- Recompute the group representative from all member palette distributions whenever a new member is added.
+- Pool the member palettes' colour samples/distributions with a clearly defined weighting policy, then recluster the pooled distribution to produce the group's current 5–8 representative swatches and weights.
+- Use a deterministic process and a consistent weighting policy. Start by giving each photo equal overall influence, while using each photo's internal colour weights to represent its composition. Document this choice.
+- If the number of photos grows enough that full recomputation becomes expensive, introduce an incremental summary or scheduled recomputation only after measuring the need. Do not sacrifice correctness prematurely.
+
+A group's representative palette must therefore be a property of the full set of images in that group, not a copy of the newest image's palette and not an unbounded chain of pairwise averages.
+
+6. GROUP DRIFT AND STABILITY
+Continuous evolution creates a known risk: gradual drift may eventually allow a group to represent photos that are no longer meaningfully similar.
+
+Reduce this risk:
+- Keep original per-image palettes immutable unless an explicit reprocessing job is run.
+- Compare a new image to the current group representative AND, where appropriate, a group-level cohesion check or representative samples from existing members.
+- Consider rejecting a match if the candidate is too dissimilar from the group's member distribution even when its representative palette is close.
+- Start with a simple, documented cohesion guard; do not build a complicated clustering research project before the basic version works.
+- Record the match distance and group revision at assignment time.
+- Do not automatically merge two existing groups just because their evolving representatives become similar. Group-to-group merging should be a separate, explicit operation or a later carefully tested feature.
+- Do not silently move old photos between groups whenever a representative palette changes. If regrouping is later supported, implement it as a separate, auditable re-clustering operation.
+
+7. DATABASE MODEL
+Design persistent models/collections/tables for at least:
+
+PHOTO
+- Stable ID
+- Storage key/path or image URL
+- Original filename and validated media type
+- Dimensions and file size
+- Fingerprint
+- Immutable extracted palette and weights
+- Assigned palette-group ID
+- Assignment distance and algorithm/threshold version
+- Created/processed timestamps
+
+PALETTE GROUP
+- Stable ID
+- Optional human-readable name
+- Current representative palette and weights
+- Member photo IDs or a queryable membership relation
+- Photo count
+- Palette revision/version
+- Created and updated timestamps
+- Extraction / representative algorithm version
+
+Do not rely solely on an embedded unbounded photo array if that will make group documents grow indefinitely. Choose a sensible relation/index strategy for the selected database.
+
+Add indexes for common lookups: fingerprints, group IDs, creation timestamps, and group ordering.
+
+8. CONSISTENCY AND CONCURRENCY
+Uploads may happen close together. Prevent race conditions that could cause lost updates or duplicate groups:
+- Make the group assignment and representative-palette update consistent.
+- Use transactions where supported, or a documented locking / serialisation strategy.
+- Re-read the group membership before committing a recomputation if needed.
+- Handle duplicate fingerprints idempotently.
+- Ensure failed palette extraction does not leave orphaned groups or incomplete photo records.
+- Keep file cleanup behaviour explicit if the database write fails after a file has been stored.
+
+9. API DESIGN
+Build a small REST API with input validation and predictable JSON responses. Suggested routes:
+
+POST /api/photos
+- Accept a multipart image upload.
+- Validate, store, fingerprint, extract, assign/merge, recompute the target group, and return the created photo plus the updated group summary.
+- Return meaningful 4xx errors for invalid files and 5xx errors for unexpected server failures.
+
+GET /api/photos
+- Return a paginated list of photos for the Catalogue page.
+- Avoid returning huge binary image content in JSON.
+
+GET /api/photos/:id
+- Return photo metadata, image URL/path, extracted palette, and current group ID.
+
+GET /api/palettes
+- Return palette groups for Palettewise.
+- Include each group's stable ID, current representative swatches and weights, revision/version, photo count, and member photo thumbnails/URLs.
+- Return groups in a deterministic order, such as creation order or a documented visual order.
+- Support pagination or cursor-based loading when the archive grows.
+
+GET /api/palettes/:id
+- Return a single group and its member photos.
+
+DELETE /api/photos/:id
+- Optional only if it can be implemented safely. If included, remove the photo and recompute the affected group's representative palette. Delete empty groups according to a documented policy.
+- Do not add deletion unless it can maintain database, storage, and group consistency.
+
+Use a consistent error response shape. Validate pagination, IDs, and uploaded files. Configure CORS deliberately for the frontend origin. Add health-check and central error-handling middleware.
+
+10. FRONTEND DATA CONTRACT
+The frontend needs to render rows without knowing the internals of the algorithm.
+
+A palette-group response should conceptually provide:
+{
+  "id": "stable-group-id",
+  "label": "optional display name",
+  "revision": 4,
+  "photoCount": 12,
+  "colors": [
+    { "hex": "#...", "weight": 0.34 },
+    { "hex": "#...", "weight": 0.25 }
+  ],
+  "photos": [
+    {
+      "id": "stable-photo-id",
+      "thumbnailUrl": "/...",
+      "imageUrl": "/..."
+    }
+  ],
+  "createdAt": "...",
+  "updatedAt": "..."
+}
+
+This is a conceptual schema, not a requirement to use those exact property names. Document the final response schema and keep it consistent.
+
+The frontend's visible labels [1], [2], [3] should be assigned from display order. They are not stable group IDs and must not be stored as group identities.
+
+11. TESTING
+Write unit and integration tests for:
+- Palette weights sum approximately to 1.
+- Identical or near-identical images receive low palette distance.
+- Clearly different palettes receive higher distance.
+- Swatch ordering does not break matching.
+- A new image joins a group when it passes the threshold.
+- A dissimilar image creates a new group.
+- A group's representative palette changes after a new member is added.
+- Existing photos' original palettes remain unchanged after group recomputation.
+- The group palette is derived from all members, not just the newest image.
+- Duplicate upload handling is idempotent.
+- Invalid/corrupt/oversized files are rejected.
+- Concurrent uploads do not lose group updates or create accidental duplicates.
+- Deleting a photo, if implemented, correctly recomputes the group.
+
+Include test fixtures or generated synthetic colour samples so the core algorithm can be tested without relying on external services or a manually maintained photo collection.
+
+12. PERFORMANCE AND OPERATIONS
+- Keep image analysis off the request's critical path if processing time becomes significant; begin with synchronous processing for a simple first version only if it is acceptably fast.
+- Isolate the extraction and similarity code so it can later run in a background worker.
+- Generate thumbnails rather than serving original high-resolution images for every Palettewise tile.
+- Use streaming uploads or safe temporary files rather than buffering arbitrarily large files into memory.
+- Add sensible limits and clear logs, but never log secrets or image contents.
+- Keep the code simple enough for a student developer to understand and extend.
+
+DELIVERABLE
+Implement a runnable backend from the empty folder, including:
+- Server setup and scripts
+- Persistent data models
+- Upload and image-storage flow
+- Palette extraction and similarity modules
+- Evolving group representative-palette calculation
+- REST endpoints for photos and palette groups
+- Environment example
+- Tests and a short explanation of how to run them
+
+At completion, explain the selected stack, required environment variables, database setup, available routes, algorithm choices, threshold tuning, and known limitations. Do not claim that the algorithm matches Atmos Gallery's private implementation exactly.
